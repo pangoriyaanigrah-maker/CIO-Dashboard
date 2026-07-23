@@ -70,6 +70,41 @@ CRORE = 1e7
 PAUSE = 0.4          # seconds between Yahoo calls, be polite
 Z_CLAMP = 3.0        # clamp extreme z-scores
 
+# Same large/mid cutoffs as the dashboard's CUTS const — keep in sync.
+SIZE_CUTS = {"large": 67000, "mid": 22000}  # ₹ crore
+
+# Sector tag per universe name — used only to build a live sector/size
+# benchmark (market-cap-weighted across this universe), NOT official
+# Nifty 500 weights. Widen UNIVERSE_EXTRA and this map together for a
+# closer approximation; names missing here are excluded from the
+# benchmark calc (still get momentum/val/qual normally).
+SECTOR_MAP = {
+    "HDFCBANK":"Financials","BEL":"Industrials","SUNPHARMA":"Healthcare",
+    "TITAN":"Consumer Discretionary","DIXON":"Consumer Discretionary",
+    "PERSISTENT":"IT Services","KAYNES":"Industrials",
+    "RELIANCE":"Energy","TCS":"IT Services","INFY":"IT Services",
+    "ICICIBANK":"Financials","SBIN":"Financials","AXISBANK":"Financials",
+    "KOTAKBANK":"Financials","BHARTIARTL":"Telecom","ITC":"Consumer Staples",
+    "HINDUNILVR":"Consumer Staples","LT":"Industrials","BAJFINANCE":"Financials",
+    "MARUTI":"Autos","M&M":"Autos","TATAMOTORS":"Autos","NTPC":"Utilities",
+    "POWERGRID":"Utilities","ULTRACEMCO":"Materials",
+    "ASIANPAINT":"Consumer Discretionary","NESTLEIND":"Consumer Staples",
+    "WIPRO":"IT Services","HCLTECH":"IT Services","TECHM":"IT Services",
+    "DRREDDY":"Healthcare","CIPLA":"Healthcare","DIVISLAB":"Healthcare",
+    "APOLLOHOSP":"Healthcare","TATASTEEL":"Materials","JSWSTEEL":"Materials",
+    "HINDALCO":"Materials","COALINDIA":"Energy","ONGC":"Energy","BPCL":"Energy",
+    "GRASIM":"Materials","ADANIENT":"Industrials","ADANIPORTS":"Industrials",
+    "EICHERMOT":"Autos","BAJAJ-AUTO":"Autos","HEROMOTOCO":"Autos",
+    "INDUSINDBK":"Financials","SBILIFE":"Financials","HDFCLIFE":"Financials",
+    "TATACONSUM":"Consumer Staples","BRITANNIA":"Consumer Staples",
+    "SHRIRAMFIN":"Financials","HAL":"Industrials","BDL":"Industrials",
+    "MAZDOCK":"Industrials","SOLARINDS":"Industrials","CGPOWER":"Industrials",
+    "POLYCAB":"Industrials","AMBER":"Consumer Discretionary","SYRMA":"Industrials",
+    "COFORGE":"IT Services","MPHASIS":"IT Services","LTIM":"IT Services",
+    "CUMMINSIND":"Industrials","ABB":"Industrials","SIEMENS":"Industrials",
+    "TIINDIA":"Industrials",
+}
+
 # ------------------------------------------------------------------ fetch
 def fetch_prices(ysym):
     """Return dict with cmp, lo (52w), mcap (cr), momo_raw — or raise."""
@@ -149,6 +184,39 @@ def composite(zmaps, name):
     vals = [zm[name] for zm in zmaps if zm.get(name) is not None]
     return round(sum(vals) / len(vals), 2) if vals else None
 
+
+def size_bucket(mcap_cr):
+    if mcap_cr is None:
+        return None
+    if mcap_cr >= SIZE_CUTS["large"]:
+        return "Large"
+    if mcap_cr >= SIZE_CUTS["mid"]:
+        return "Mid"
+    return "Small"
+
+
+def build_benchmarks(prices):
+    """Market-cap-weighted sector & size composition across the fetched
+    universe. This is a LIVE PROXY, not the official Nifty 500 weighting —
+    good enough to replace a static guess, not a factsheet replacement."""
+    sect_mcap, size_mcap, total = {}, {"Large": 0.0, "Mid": 0.0, "Small": 0.0}, 0.0
+    for dkey, row in prices.items():
+        mc = row.get("mcap")
+        if not mc:
+            continue
+        sec = SECTOR_MAP.get(dkey)
+        if sec:
+            sect_mcap[sec] = sect_mcap.get(sec, 0.0) + mc
+        b = size_bucket(mc)
+        if b:
+            size_mcap[b] += mc
+        total += mc
+    if total <= 0:
+        return None, None
+    bench_sect = {k: round(v / total, 4) for k, v in sorted(sect_mcap.items(), key=lambda kv: -kv[1])}
+    bench_size = {k: round(v / total, 4) for k, v in size_mcap.items()}
+    return bench_sect, bench_size
+
 # ------------------------------------------------------------------ main
 def main():
     all_syms = {**PORTFOLIO, **{s.replace(".NS", ""): s for s in UNIVERSE_EXTRA}}
@@ -195,16 +263,25 @@ def main():
             "qual": composite([roe_z, om_z, de_z], dkey),
         }
 
+    bench_sect, bench_size = build_benchmarks(prices)
+    if bench_sect is None:
+        print("WARNING: no market-cap data available — bench_sect/bench_size omitted, "
+              "dashboard keeps its static fallback.", file=sys.stderr)
+
     ist = timezone(timedelta(hours=5, minutes=30))
     payload = {
         "asof": datetime.now(ist).strftime("%d %b %Y, %H:%M IST"),
         "note": (f"z-scores cross-sectional vs {len(prices)}-name NSE universe. "
                  "val = earnings+book yield (positive=cheap); "
                  "qual = ROE+op margin−leverage; momo = 12M−1M & 6M blend. "
+                 "bench_sect/bench_size = mcap-weighted live proxy over the same "
+                 "universe, NOT official Nifty 500 index weights. "
                  "Source: Yahoo Finance nightly."),
         "universe_size": len(prices),
         "errors": errors,
         "signals": out,
+        "bench_sect": bench_sect,
+        "bench_size": bench_size,
     }
     with open("signals.json", "w") as f:
         json.dump(payload, f, indent=1)
