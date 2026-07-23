@@ -1,6 +1,6 @@
 {
- "asof": "23 Jul 2026, 21:31 IST",
- "note": "z-scores cross-sectional vs 65-name NSE universe. val = earnings+book yield (positive=cheap); qual = ROE+op margin\u2212leverage; momo = 12M\u22121M & 6M blend. Source: Yahoo Finance nightly.",
+ "asof": "23 Jul 2026, 22:38 IST",
+ "note": "z-scores cross-sectional vs 65-name NSE universe. val = earnings+book yield (positive=cheap); qual = ROE+op margin\u2212leverage; momo = 12M\u22121M & 6M blend. bench_sect/bench_size = mcap-weighted live proxy over the same universe, NOT official Nifty 500 index weights. Source: Yahoo Finance nightly.",
  "universe_size": 65,
  "errors": [
   "TATAMOTORS: insufficient history (0 rows)",
@@ -36,7 +36,7 @@
    "mcap": 416672,
    "lo": 3305.2,
    "momo": 0.68,
-   "val": -0.96,
+   "val": -0.95,
    "qual": -0.49
   },
   "DIXON": {
@@ -63,5 +63,23 @@
    "val": -0.48,
    "qual": -0.43
   }
+ },
+ "bench_sect": {
+  "Financials": 0.2518,
+  "Industrials": 0.1503,
+  "Energy": 0.1191,
+  "IT Services": 0.1011,
+  "Autos": 0.0704,
+  "Consumer Staples": 0.0675,
+  "Materials": 0.064,
+  "Telecom": 0.0589,
+  "Healthcare": 0.0489,
+  "Consumer Discretionary": 0.0383,
+  "Utilities": 0.0297
+ },
+ "bench_size": {
+  "Large": 0.9863,
+  "Mid": 0.0127,
+  "Small": 0.0011
  }
 }
