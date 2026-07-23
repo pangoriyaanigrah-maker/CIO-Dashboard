@@ -238,11 +238,16 @@ button.ghost{background:none;color:var(--saffron)}
 </div>
 <script>
 /* ================= DATA ================= */
-const BENCH_SECT = { "Financials":0.30, "IT Services":0.12, "Consumer Discretionary":0.10, "Industrials":0.09,
+/* Static fallback only — used when the nightly feed doesn't carry a live
+   bench_sect/bench_size (e.g. old feed version, or mcap fetch failed). */
+const BENCH_SECT_FALLBACK = { "Financials":0.30, "IT Services":0.12, "Consumer Discretionary":0.10, "Industrials":0.09,
   "Energy":0.09, "Consumer Staples":0.07, "Materials":0.07, "Healthcare":0.06, "Autos":0.05,
   "Telecom":0.03, "Utilities":0.02 };
 const CUTS = { large:67000, mid:22000 };
-const BENCH_SIZE = {Large:.72, Mid:.18, Small:.10};
+const BENCH_SIZE_FALLBACK = {Large:.72, Mid:.18, Small:.10};
+let BENCH_SECT = BENCH_SECT_FALLBACK;
+let BENCH_SIZE = BENCH_SIZE_FALLBACK;
+let benchLive = false; // true once a live bench_sect/bench_size arrives from the feed
 /* ===== LIVE SIGNAL FEED =====
    Nightly builder (build_signals.py, GitHub Actions cron) writes signals.json.
    Set FEED_URL to the raw URL of that file (GitHub raw / Vercel / any static host).
@@ -269,11 +274,21 @@ async function loadSignals(){
       if (!j.signals || !Object.keys(j.signals).length) throw new Error("empty feed");
       SIGNALS = j.signals;
       feedMeta = { live:true, asof:j.asof || "unknown", note:j.note || "" };
+      // Live sector/size benchmark: only swap in if the feed actually carries
+      // non-empty maps — an old feed version or a failed mcap fetch omits
+      // these keys, and we keep the static fallback rather than blank charts.
+      if (j.bench_sect && Object.keys(j.bench_sect).length){
+        BENCH_SECT = j.bench_sect; benchLive = true;
+      } else { BENCH_SECT = BENCH_SECT_FALLBACK; benchLive = false; }
+      if (j.bench_size && Object.keys(j.bench_size).length){
+        BENCH_SIZE = j.bench_size;
+      } else { BENCH_SIZE = BENCH_SIZE_FALLBACK; }
       renderAll();
       return;
     }catch(e){ /* try next / fall back */ }
   }
   feedMeta = { live:false, asof:"embedded snapshot · 17 Jul 2026 (feed unreachable)" };
+  BENCH_SECT = BENCH_SECT_FALLBACK; BENCH_SIZE = BENCH_SIZE_FALLBACK; benchLive = false;
   renderAll();
 }
 /* wt = current weight · fullWt = intended full position (0 = exiting) · addLvl = staged add trigger price */
@@ -558,7 +573,7 @@ function renderExposures(){
     ${frailHTML("Momentum", "12M−1M and 6M price return blend. Positive = stronger tape.", s=>s.momo)}
     ${frailHTML("Quality", "ROE, leverage, margin stability, accruals. Positive = higher quality.", s=>s.qual)}
   </div>
-  <div class="sec">Size <small>vs Nifty 500 weights</small></div>
+  <div class="sec">Size <small>${benchLive?"vs live mcap-weighted NSE universe benchmark":"vs static placeholder weights"}</small></div>
   <div class="panel" style="margin-bottom:18px">
     <div style="display:flex;height:14px;border-radius:4px;overflow:hidden;margin-bottom:8px">
       ${Object.entries(sizeW).map(([k,v])=>`<div style="width:${v/W()*100}%;background:${sc[k]}"></div>`).join("")}
@@ -567,12 +582,14 @@ function renderExposures(){
       ${Object.entries(sizeW).map(([k,v])=>`<span><span class="dot" style="background:${sc[k]}"></span>${k} ${(v/W()*100).toFixed(0)}% (idx ${(BENCH_SIZE[k]*100).toFixed(0)})</span>`).join("")}
     </div>
   </div>
-  <div class="sec">Sector exposure <small>active weight and P&L contribution</small></div>
+  <div class="sec">Sector exposure <small>active weight and P&L contribution · benchmark ${benchLive?"<b style='color:var(--up)'>LIVE (mcap-weighted proxy)</b>":"static placeholder"}</small></div>
   <div class="twrap"><table class="ptable">
     <thead><tr><th>Sector</th><th>Portfolio</th><th>Nifty 500</th><th>Active</th><th>P&L</th></tr></thead>
     <tbody>${secRows}</tbody>
   </table></div>
-  <div class="foot">Benchmark sector and size weights are static placeholders in the mock — pulled from the index factsheet feed in production.</div>`;
+  <div class="foot">${benchLive
+    ? "Benchmark sector/size is a market-cap-weighted live proxy computed nightly across the script's NSE universe — not the official Nifty 500 index weighting. Widen the universe in build_signals.py for a closer approximation."
+    : "Benchmark sector and size weights are a static placeholder — the live feed either doesn't include bench_sect/bench_size yet, or is unreachable."}</div>`;
 }
 /* ================= RENDER: POSITIONS ================= */
 function renderPositions(){
