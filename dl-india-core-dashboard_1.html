@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DL India Core — CIO Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#0E1420; --panel:#151D2C; --line:#25304A;
+  --text:#E9E5D9; --dim:#8B94A8; --faint:#5B6478;
+  --saffron:#F2A93B; --up:#43C08D; --down:#E4604E; --amber:#E8B44C; --blue:#4E7BC4;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{background:var(--ink)}
+body{font-family:'Barlow',sans-serif;color:var(--text);background:var(--ink);
+  padding:28px 20px 60px;max-width:1080px;margin:0 auto;font-size:15px}
+/* ---------- header + tabs ---------- */
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.18em;
+  color:var(--saffron);text-transform:uppercase;margin-bottom:6px}
+h1{font-family:'Barlow Condensed';font-weight:700;font-size:clamp(34px,6vw,52px);
+  letter-spacing:.01em;line-height:1;text-transform:uppercase}
+.head-row{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.asof{font-family:'IBM Plex Mono';font-size:12px;color:var(--dim);text-align:right;line-height:1.7}
+.asof b{color:var(--text);font-weight:500}
+.tabs{display:flex;gap:4px;margin:22px 0 0;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{font-family:'Barlow Condensed';font-weight:600;font-size:15px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dim);background:none;border:none;cursor:pointer;
+  padding:10px 18px;border-bottom:2px solid transparent;white-space:nowrap}
+.tab.active{color:var(--saffron);border-bottom-color:var(--saffron)}
+.tab:focus-visible{outline:2px solid var(--saffron);outline-offset:2px}
+.view{display:none;padding-top:20px}
+.view.active{display:block}
+/* ---------- shared ---------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:0 0 18px;background:var(--panel)}
+.stat{padding:14px 16px;border-right:1px solid var(--line)}
+.stat:last-child{border-right:none}
+.stat .k{font-family:'Barlow Condensed';font-weight:600;font-size:12.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.stat .v{font-family:'IBM Plex Mono';font-size:20px;font-weight:600}
+.stat .s{font-family:'IBM Plex Mono';font-size:11px;color:var(--faint);margin-top:2px}
+.pos{color:var(--up)} .neg{color:var(--down)}
+.sec{font-family:'Barlow Condensed';font-weight:700;font-size:20px;letter-spacing:.08em;
+  text-transform:uppercase;margin:8px 0 8px}
+.sec small{font-family:'IBM Plex Mono';font-weight:400;font-size:11px;color:var(--faint);
+  letter-spacing:.05em;text-transform:none;margin-left:10px}
+.foot{font-family:'IBM Plex Mono';font-size:11px;color:var(--faint);margin-top:18px;line-height:1.8}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.panel h3{font-family:'Barlow Condensed';font-weight:600;font-size:13px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+/* ---------- composition ---------- */
+.compwrap{margin-bottom:18px}
+.comprow{display:grid;grid-template-columns:92px 1fr;gap:12px;align-items:center;margin-bottom:9px}
+.comprow .lab{font-family:'Barlow Condensed';font-weight:600;font-size:12px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint);text-align:right}
+.compbar{display:flex;height:22px;border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+.compbar div{height:100%;position:relative;min-width:1px}
+.compbar .seg-lbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'IBM Plex Mono';font-size:9.5px;color:rgba(14,20,32,.9);font-weight:600;overflow:hidden;white-space:nowrap}
+.complegend{display:flex;gap:14px;font-family:'IBM Plex Mono';font-size:11px;color:var(--dim);flex-wrap:wrap;margin-top:6px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+/* ---------- attribution bars ---------- */
+.attr-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.plbar{display:grid;grid-template-columns:96px 1fr 84px;gap:10px;align-items:center;
+  font-family:'IBM Plex Mono';font-size:11.5px;margin-bottom:7px;color:var(--dim)}
+.plbar .axis{position:relative;height:14px}
+.plbar .zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}
+.plbar .bar{position:absolute;top:2px;height:10px;border-radius:2px}
+.plbar .val{text-align:right}
+/* ---------- insights ---------- */
+.insight{border-left:2px solid var(--saffron);background:var(--panel);border-radius:0 10px 10px 0;
+  padding:13px 16px;margin-bottom:10px;font-size:14px;line-height:1.55;color:var(--dim)}
+.insight b{color:var(--text);font-weight:600}
+.insight .tag{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--saffron);display:block;margin-bottom:4px}
+/* ---------- factor rails ---------- */
+.frail{margin-bottom:22px}
+.frail .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.frail .nm{font-family:'Barlow Condensed';font-weight:600;font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.frail .zval{font-family:'IBM Plex Mono';font-size:14px;font-weight:600;color:var(--saffron)}
+.frail .axis{position:relative;height:30px;background:var(--panel);border:1px solid var(--line);border-radius:6px}
+.frail .zero{position:absolute;left:50%;top:4px;bottom:4px;width:1px;background:var(--faint)}
+.frail .gridl{position:absolute;top:8px;bottom:8px;width:1px;background:var(--line)}
+.frail .hdot{position:absolute;top:50%;width:7px;height:7px;border-radius:50%;
+  background:var(--blue);opacity:.55;transform:translate(-50%,-50%)}
+.frail .wmark{position:absolute;top:50%;width:12px;height:12px;background:var(--saffron);
+  transform:translate(-50%,-50%) rotate(45deg);border-radius:2px}
+.frail .lbls{display:flex;justify-content:space-between;font-family:'IBM Plex Mono';
+  font-size:9.5px;color:var(--faint);margin-top:4px}
+.frail .note{font-family:'IBM Plex Mono';font-size:11px;color:var(--faint);margin-top:5px}
+/* ---------- tables ---------- */
+.twrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.ptable{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono';font-size:12px;min-width:640px}
+.ptable th{font-family:'Barlow Condensed';font-weight:600;font-size:11.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint);text-align:right;padding:10px;border-bottom:1px solid var(--line)}
+.ptable th:first-child{text-align:left}
+.ptable td{padding:9px 10px;border-bottom:1px solid var(--line);color:var(--dim);text-align:right;white-space:nowrap}
+.ptable td:first-child{color:var(--text);text-align:left}
+.ptable td.wraptext{white-space:normal;text-align:left;min-width:220px;line-height:1.5}
+.ptable tr:last-child td{border-bottom:none}
+.actbar{display:inline-block;height:8px;border-radius:2px;vertical-align:middle}
+/* ---------- positions ---------- */
+.cols{display:grid;grid-template-columns:2fr 1fr 1.6fr 1fr 1fr 1fr;gap:12px;
+  padding:10px 16px 6px;font-family:'Barlow Condensed';font-weight:600;font-size:12px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.row{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:8px;
+  cursor:pointer;transition:border-color .15s}
+.row:hover{border-color:var(--saffron)}
+.row-main{display:grid;grid-template-columns:2fr 1fr 1.6fr 1fr 1fr 1fr;gap:12px;
+  padding:13px 16px;align-items:center}
+.nm2 .tk{font-family:'IBM Plex Mono';font-weight:600;font-size:14px}
+.nm2 .co{font-size:12.5px;color:var(--dim);margin-top:1px}
+.nm2 .meta{font-family:'IBM Plex Mono';font-size:10.5px;color:var(--faint);margin-top:3px}
+.cell{font-family:'IBM Plex Mono';font-size:13.5px}
+.cell .lbl{display:none}
+.cell .sub{font-size:10.5px;color:var(--faint);margin-top:2px}
+.badge{display:inline-block;font-family:'IBM Plex Mono';font-size:10.5px;font-weight:600;
+  padding:3px 8px;border-radius:4px;letter-spacing:.04em}
+.b-ok{color:var(--up);background:rgba(67,192,141,.12)}
+.b-near{color:var(--amber);background:rgba(232,180,76,.14)}
+.b-rev{color:var(--down);background:rgba(228,96,78,.14)}
+.bucket{font-family:'IBM Plex Mono';font-size:10px;color:var(--dim);
+  border:1px solid var(--line);border-radius:3px;padding:1px 5px;margin-left:6px}
+.built{font-family:'IBM Plex Mono';font-size:10px;color:var(--saffron);
+  border:1px solid rgba(242,169,59,.4);border-radius:3px;padding:1px 5px;margin-left:6px}
+.rail{position:relative;height:26px}
+.rail .track{position:absolute;top:12px;left:0;right:0;height:2px;background:var(--line)}
+.rail .tp{position:absolute;top:6px;width:2px;height:14px;background:var(--saffron)}
+.rail .add{position:absolute;top:8px;width:2px;height:10px;background:var(--blue)}
+.rail .cmp{position:absolute;top:8.5px;width:9px;height:9px;border-radius:50%;
+  background:var(--ink);border:2px solid var(--up);transform:translateX(-50%)}
+.rail .lo,.rail .tg{position:absolute;top:-6px;font-family:'IBM Plex Mono';font-size:9.5px;color:var(--faint)}
+.rail .tg{color:var(--saffron)}
+.detail{display:none;font-size:14px;color:var(--dim);line-height:1.55;
+  border-top:1px dashed var(--line);margin:0 16px;padding:11px 0 14px}
+.detail b{color:var(--text);font-weight:600}
+.detail .dlab{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--saffron);display:block;margin-bottom:3px}
+.detail .strat{margin-top:10px;padding-top:10px;border-top:1px dotted var(--line)}
+.row.open .detail{display:block}
+.sigchips{font-family:'IBM Plex Mono';font-size:10px;margin-top:4px}
+.sigchips span{margin-right:8px;color:var(--faint)}
+.sigchips b{font-weight:600}
+/* ---------- import ---------- */
+.drops{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.drop{border:1.5px dashed var(--line);border-radius:12px;background:var(--panel);
+  padding:34px 20px;text-align:center;cursor:pointer;transition:border-color .15s}
+.drop:hover,.drop.over{border-color:var(--saffron)}
+.drop .big{font-family:'Barlow Condensed';font-weight:600;font-size:20px;letter-spacing:.06em;text-transform:uppercase}
+.drop .sm{font-family:'IBM Plex Mono';font-size:11.5px;color:var(--dim);margin-top:8px;line-height:1.8}
+.drop .sm b{color:var(--saffron);font-weight:500}
+.imp-note{font-family:'IBM Plex Mono';font-size:11.5px;color:var(--faint);line-height:1.9;margin-top:16px}
+.imp-note b{color:var(--dim);font-weight:500}
+.msg{font-family:'IBM Plex Mono';font-size:12.5px;margin-top:16px;padding:11px 14px;border-radius:8px;display:none}
+.msg.ok{display:block;color:var(--up);background:rgba(67,192,141,.1);border:1px solid rgba(67,192,141,.35)}
+.msg.err{display:block;color:var(--down);background:rgba(228,96,78,.1);border:1px solid rgba(228,96,78,.35)}
+.btnrow{display:flex;gap:12px;margin-top:18px;flex-wrap:wrap}
+button.act{font-family:'Barlow Condensed';font-weight:600;font-size:14px;letter-spacing:.1em;
+  text-transform:uppercase;padding:11px 22px;border-radius:8px;cursor:pointer;border:1px solid var(--saffron);
+  background:var(--saffron);color:var(--ink)}
+button.ghost{background:none;color:var(--saffron)}
+#preview{display:none}
+#preview .twrap{margin-top:14px}
+@media (max-width:760px){
+  .attr-grid{grid-template-columns:1fr}
+  .drops{grid-template-columns:1fr}
+  .cols{display:none}
+  .row-main{grid-template-columns:1fr 1fr;gap:10px 14px}
+  .nm2{grid-column:1 / -1}
+  .rail{grid-column:1 / -1;margin-top:2px}
+  .cell .lbl{display:block;font-family:'Barlow Condensed';font-weight:600;font-size:11px;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .plbar{grid-template-columns:76px 1fr 76px}
+  .comprow{grid-template-columns:64px 1fr}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="head-row">
+  <div>
+    <div class="eyebrow">DeLorean Partners · CIO Dashboard · Mock</div>
+    <h1>DL India Core</h1>
+  </div>
+  <div class="asof" id="asof"></div>
+</div>
+<div class="tabs" role="tablist">
+  <button class="tab active" id="t-ov" onclick="showView('ov')">Overview</button>
+  <button class="tab" id="t-exp" onclick="showView('exp')">Exposures</button>
+  <button class="tab" id="t-posn" onclick="showView('posn')">Positions</button>
+  <button class="tab" id="t-imp" onclick="showView('imp')">Import</button>
+</div>
+<div class="view active" id="v-ov"><div id="ov-body"></div></div>
+<div class="view" id="v-exp"><div id="exp-body"></div></div>
+<div class="view" id="v-posn">
+  <div class="cols">
+    <div>Name</div><div>Weight</div><div>CMP → Target</div><div>Upside</div><div>Signals</div><div>Status</div>
+  </div>
+  <div id="rows"></div>
+  <div class="foot">Tap a position for thesis and strategy. Blue tick on the rail = staged add level. Signal z-scores are cross-sectional vs the Nifty 500 universe.</div>
+</div>
+<div class="view" id="v-imp">
+  <div class="drops">
+    <div class="drop" id="drop-h" onclick="pick('h')">
+      <div class="big">Holdings file</div>
+      <div class="sm">DL template <b>.xlsx</b> (Portfolio sheet)<br>or CSV: Ticker, Company, Sector, Analyst, Weight, FullWeight, Target, AddLevel, Conviction, Thesis, Strategy</div>
+    </div>
+    <div class="drop" id="drop-t" onclick="pick('t')">
+      <div class="big">Trades file</div>
+      <div class="sm">DL template <b>.xlsx</b> (Trades sheet)<br>or CSV: Date, Ticker, Side, Qty, Price, Costs</div>
+    </div>
+  </div>
+  <input type="file" id="file-h" accept=".xlsx,.csv" style="display:none">
+  <input type="file" id="file-t" accept=".xlsx,.csv" style="display:none">
+  <div class="msg" id="msg"></div>
+  <div id="preview">
+    <div class="sec" style="margin-top:22px">Preview <small id="pcount"></small></div>
+    <div class="twrap"><table class="ptable">
+      <thead><tr id="phead"></tr></thead>
+      <tbody id="pbody"></tbody>
+    </table></div>
+    <div class="btnrow">
+      <button class="act" onclick="commit()">Load</button>
+      <button class="act ghost" onclick="resetImport()">Clear</button>
+    </div>
+  </div>
+  <div class="imp-note">
+    <b>Division of labour:</b> analysts own weights, targets, theses and entry/exit strategy (holdings file);
+    dealers own executions (trades file); market data — price, market cap, valuation, momentum, quality —
+    is fetched by the app, not typed.<br>
+    <b>In this mock</b> the signal feed is a simulated snapshot. <b>In production</b> a Vercel cron hits yfinance
+    (.NS tickers) nightly for prices/momentum and FactSet for fundamentals, writes z-scores vs the Nifty 500
+    cross-section to Postgres, and every upload is versioned with an audit trail.
+  </div>
+</div>
+<script>
+/* ================= DATA ================= */
+const BENCH_SECT = { "Financials":0.30, "IT Services":0.12, "Consumer Discretionary":0.10, "Industrials":0.09,
+  "Energy":0.09, "Consumer Staples":0.07, "Materials":0.07, "Healthcare":0.06, "Autos":0.05,
+  "Telecom":0.03, "Utilities":0.02 };
+const CUTS = { large:67000, mid:22000 };
+const BENCH_SIZE = {Large:.72, Mid:.18, Small:.10};
+/* ===== LIVE SIGNAL FEED =====
+   Nightly builder (build_signals.py, GitHub Actions cron) writes signals.json.
+   Set FEED_URL to the raw URL of that file (GitHub raw / Vercel / any static host).
+   Empty FEED_URL, or fetch failure, falls back to the embedded snapshot below. */
+const FEED_URL = ""; // e.g. "https://raw.githubusercontent.com/<user>/<repo>/main/signals.json"
+const SIGNALS_FALLBACK = {
+  HDFCBANK:  {cmp:1000,  mcap:1530000, lo:820,   val:+0.9, momo:-0.2, qual:+0.7},
+  BEL:       {cmp:340,   mcap:248000,  lo:225,   val:-1.1, momo:+1.4, qual:+0.8},
+  SUNPHARMA: {cmp:1750,  mcap:420000,  lo:1420,  val:-0.2, momo:+0.1, qual:+0.5},
+  TITAN:     {cmp:3600,  mcap:320000,  lo:2960,  val:-1.5, momo:-0.4, qual:+0.9},
+  DIXON:     {cmp:16500, mcap:99000,   lo:9800,  val:-2.0, momo:+1.8, qual:+0.3},
+  PERSISTENT:{cmp:5600,  mcap:87000,   lo:4300,  val:-0.9, momo:-0.6, qual:+0.6},
+  KAYNES:    {cmp:6200,  mcap:40000,   lo:3900,  val:-1.7, momo:+1.2, qual:-0.3},
+};
+let SIGNALS = SIGNALS_FALLBACK;
+let feedMeta = { live:false, asof:"embedded snapshot · 17 Jul 2026" };
+async function loadSignals(){
+  const urls = FEED_URL ? [FEED_URL] : ["signals.json"]; // same-dir fallback when hosted together
+  for (const u of urls){
+    try{
+      const r = await fetch(u, {cache:"no-store"});
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      if (!j.signals || !Object.keys(j.signals).length) throw new Error("empty feed");
+      SIGNALS = j.signals;
+      feedMeta = { live:true, asof:j.asof || "unknown", note:j.note || "" };
+      renderAll();
+      return;
+    }catch(e){ /* try next / fall back */ }
+  }
+  feedMeta = { live:false, asof:"embedded snapshot · 17 Jul 2026 (feed unreachable)" };
+  renderAll();
+}
+/* wt = current weight · fullWt = intended full position (0 = exiting) · addLvl = staged add trigger price */
+const sampleHoldings = [
+ {tk:"HDFCBANK", co:"HDFC Bank", sector:"Financials", analyst:"Amit", wt:.18, fullWt:.18, tp:1250, conv:"High", addLvl:900,
+  thesis:"Best-in-class liability franchise. NIM recovery as post-merger high-cost borrowings roll off through FY27. Trades below its 10-year average P/B while system credit growth reaccelerates. <b>Risk:</b> deposit competition compressing spreads.",
+  strategy:"Full position built at avg ₹970. Hold. Opportunistic add of up to 200bps below ₹900 only if credit growth confirms — funded from cash, not trims."},
+ {tk:"BEL", co:"Bharat Electronics", sector:"Industrials", analyst:"Matt", wt:.15, fullWt:.15, tp:420, conv:"High", addLvl:null,
+  thesis:"Defense indigenisation order book at 3.5x revenue; mix shifting from build-to-print toward systems, lifting margins. Core beneficiary of the multi-year defense capex cycle. <b>Risk:</b> QRSAM execution timelines slipping right.",
+  strategy:"Built in two tranches (₹295, ₹318). Trim 25% above ₹400 into strength; hold core through the FY27 order cycle. Do not add above ₹360."},
+ {tk:"SUNPHARMA", co:"Sun Pharma", sector:"Healthcare", analyst:"Aditya", wt:.08, fullWt:.15, tp:2100, conv:"High", addLvl:1600,
+  thesis:"Specialty franchise (Ilumya, Cequa) now ~19% of sales with global peak-sales optionality. US generics drag bottoming; India chronic franchise compounding. <b>Risk:</b> Halol re-inspection outcome.",
+  strategy:"50% deployed at ₹1,620. Buy the balance 7% on a correction toward ₹1,600 <b>or</b> on Halol clearance, whichever comes first. No chasing above ₹1,850."},
+ {tk:"TITAN", co:"Titan Company", sector:"Consumer Discretionary", analyst:"Amit", wt:.08, fullWt:.14, tp:4300, conv:"Medium", addLvl:3250,
+  thesis:"Jewellery formalisation compounder; studded ratio recovering, Caratlane scaling profitably. Paying up for durability of growth. <b>Risk:</b> gold price spikes deferring purchases; wedding-season timing.",
+  strategy:"Half position at ₹3,450. Add the remaining 6% on a ~10% correction to ₹3,250. If no correction by Diwali, reassess target rather than chase."},
+ {tk:"DIXON", co:"Dixon Technologies", sector:"Consumer Discretionary", analyst:"Matt", wt:.10, fullWt:.10, tp:17200, conv:"Low", addLvl:null,
+  thesis:"EMS/PLI winner; mobile assembly ramping with a new anchor client. Valuation at 95x leaves no room for disappointment. <b>Risk:</b> customer concentration; PLI sunset FY27.",
+  strategy:"Trimmed one-third at ₹16,200. Run the remainder with a trailing stop at the 20-day low; exit fully at target. This is a momentum ride, not a compounding hold."},
+ {tk:"PERSISTENT", co:"Persistent Systems", sector:"IT Services", analyst:"Aditya", wt:.07, fullWt:0, tp:5400, conv:"Low", addLvl:null,
+  thesis:"Held for platform-engineering mix shift. Target reached; the structural IT-services view argues against further re-rating from 38x. <b>Action:</b> exit review at 21 Jul IC.",
+  strategy:"Exiting. Sell into strength above ₹5,600 in thirds; full exit before Q2 results regardless. Proceeds fund the Sun Pharma staged add."},
+ {tk:"KAYNES", co:"Kaynes Technology", sector:"Industrials", analyst:"Matt", wt:.09, fullWt:.13, tp:8000, conv:"High", addLvl:null,
+  thesis:"OSAT + PCB backward integration; Sanand semicon line commissions FY27, moving it up the value chain. Small-cap sleeve anchor. <b>Risk:</b> equity dilution to fund capex; promoter pledge history.",
+  strategy:"Two-thirds deployed at ₹5,400. Final 4% tranche is <b>event-gated</b>: only after the Sanand commissioning update (Q2 FY27), not price-gated."}
+];
+const sampleTrades = [
+ {date:new Date(2026,3,1),  tk:"HDFCBANK", side:"Buy",  qty:1000, price:950,  costs:500},
+ {date:new Date(2026,4,15), tk:"HDFCBANK", side:"Buy",  qty:500,  price:1010, costs:300},
+ {date:new Date(2026,5,30), tk:"HDFCBANK", side:"Sell", qty:300,  price:1080, costs:200},
+ {date:new Date(2026,3,2),  tk:"BEL",      side:"Buy",  qty:8000, price:295,  costs:1100},
+ {date:new Date(2026,4,22), tk:"BEL",      side:"Buy",  qty:4000, price:318,  costs:700},
+ {date:new Date(2026,3,9),  tk:"SUNPHARMA",side:"Buy",  qty:700,  price:1620, costs:600},
+ {date:new Date(2026,3,16), tk:"TITAN",    side:"Buy",  qty:350,  price:3450, costs:650},
+ {date:new Date(2026,2,20), tk:"DIXON",    side:"Buy",  qty:60,   price:11800,costs:400},
+ {date:new Date(2026,5,12), tk:"DIXON",    side:"Sell", qty:20,   price:16200,costs:180},
+ {date:new Date(2026,3,28), tk:"PERSISTENT",side:"Buy", qty:150,  price:5200, costs:420},
+ {date:new Date(2026,4,20), tk:"KAYNES",   side:"Buy",  qty:400,  price:5400, costs:900},
+];
+let state = { holdings: sampleHoldings, trades: sampleTrades, cash: 0.25,
+              srcH: "Sample holdings", srcT: "Sample trades" };
+let staged = null, activeSlot = null;
+/* ================= HELPERS ================= */
+const fmt = {
+  pct:(x,s=1)=> (x>0&&s?"+":"") + (x*100).toFixed(1) + "%",
+  w:(x)=> (x*100).toFixed(0)+"%",
+  z:(v)=> (v>0?"+":"") + v.toFixed(2) + "σ",
+  inr:(v)=> (v<0?"−₹":"₹") + Math.round(Math.abs(v)).toLocaleString("en-IN"),
+  lakh:(v)=> (v<0?"−":"") + "₹" + (Math.abs(v)/100000).toFixed(1) + "L",
+  d:(dt)=> dt instanceof Date && !isNaN(dt) ? dt.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"2-digit"}) : "—"
+};
+const sig = tk => SIGNALS[tk] || null;
+const cmpOf = tk => sig(tk)?.cmp ?? null;
+const upside = h => { const c=cmpOf(h.tk); return c ? h.tp/c - 1 : null; };
+const bucketOf = tk => { const m=sig(tk)?.mcap; return m==null?"—": m>=CUTS.large?"Large": m>=CUTS.mid?"Mid":"Small"; };
+const statusOf = h => { const u=upside(h);
+  return h.fullWt===0 ? ["EXITING","b-rev","var(--down)"]
+       : u==null ? ["NO FEED","b-near","var(--amber)"]
+       : u<=0 ? ["TARGET HIT","b-rev","var(--down)"]
+       : u<.10 ? ["NEAR TARGET","b-near","var(--amber)"]
+       : ["ON THESIS","b-ok","var(--up)"]; };
+const builtOf = h => h.fullWt===0 ? "Exiting" : h.fullWt ? (h.wt>=h.fullWt-0.001 ? "Full" : Math.round(h.wt/h.fullWt*100)+"% built") : "Full";
+const W = () => state.holdings.reduce((a,h)=>a+h.wt,0) || 1;
+const wavg = f => state.holdings.reduce((a,h)=>{const v=f(h); return v==null?a:a+h.wt*v;},0)/W();
+function showView(v){
+  for (const k of ["ov","exp","posn","imp"]){
+    document.getElementById("v-"+k).classList.toggle("active", k===v);
+    document.getElementById("t-"+k).classList.toggle("active", k===v);
+  }
+}
+/* ================= P&L ENGINE (avg-cost, mirrors Excel) ================= */
+function perfCalc(){
+  const by = {};
+  for (const t of state.trades){
+    const o = by[t.tk] ??= {buyQ:0,buyV:0,sellQ:0,sellV:0,fees:0,last:null};
+    if (t.side==="Buy"){ o.buyQ+=t.qty; o.buyV+=t.qty*t.price; }
+    else { o.sellQ+=t.qty; o.sellV+=t.qty*t.price; }
+    o.fees += t.costs||0; o.last = t.price;
+  }
+  const rows = Object.entries(by).map(([tk,o])=>{
+    const avg = o.buyQ ? o.buyV/o.buyQ : 0;
+    const net = o.buyQ - o.sellQ;
+    const cmp = cmpOf(tk) ?? o.last;
+    const h = state.holdings.find(x=>x.tk===tk);
+    const unreal = net*(cmp-avg);
+    const realized = o.sellV - o.sellQ*avg;
+    const total = unreal + realized - o.fees;
+    return { tk, h, net, avg, cmp, marked:!!cmpOf(tk), unreal, realized, fees:o.fees,
+             total, invested:o.buyV, ret:o.buyV?total/o.buyV:0,
+             sector: h?.sector || "Unmapped", analyst: h?.analyst || "—",
+             bucket: bucketOf(tk), momo: sig(tk)?.momo ?? null };
+  }).sort((a,b)=>b.total-a.total);
+  const sum = f => rows.reduce((a,r)=>a+f(r),0);
+  return { rows, bought:sum(r=>r.invested), realized:sum(r=>r.realized),
+           unreal:sum(r=>r.unreal), fees:sum(r=>r.fees), total:sum(r=>r.total) };
+}
+const groupPL = (rows, keyFn) => {
+  const g = {};
+  rows.forEach(r=>{ const k=keyFn(r); g[k]=(g[k]||0)+r.total; });
+  return Object.entries(g).sort((a,b)=>b[1]-a[1]);
+};
+const barList = (pairs) => {
+  const maxAbs = Math.max(...pairs.map(([,v])=>Math.abs(v)), 1);
+  return pairs.map(([k,v])=>{
+    const w = Math.abs(v)/maxAbs*48, left = v<0 ? 50-w : 50;
+    return `<div class="plbar"><div>${k}</div>
+      <div class="axis"><div class="zero"></div>
+        <div class="bar" style="left:${left}%;width:${w}%;background:${v>=0?"var(--up)":"var(--down)"}"></div></div>
+      <div class="val ${v>=0?"pos":"neg"}">${fmt.lakh(v)}</div></div>`;
+  }).join("");
+};
+/* ================= COMPOSITION MATH ================= */
+function composition(){
+  const H = state.holdings;
+  const pendingAdds = H.reduce((a,h)=>a + Math.max((h.fullWt??h.wt)-h.wt,0), 0);
+  const exits = H.filter(h=>h.fullWt===0).reduce((a,h)=>a+h.wt,0);
+  const trims = H.filter(h=>h.fullWt>0 && h.fullWt<h.wt).reduce((a,h)=>a+(h.wt-h.fullWt),0);
+  const fullBuild = H.reduce((a,h)=>a+(h.fullWt??h.wt),0);
+  const convW = {High:0, Medium:0, Low:0};
+  H.forEach(h=>{ if(convW[h.conv]!=null) convW[h.conv]+=h.wt; });
+  const stagedNames = H.filter(h=>h.fullWt>h.wt);
+  const top3 = [...H].sort((a,b)=>b.wt-a.wt).slice(0,3);
+  return { pendingAdds, exits, trims, fullBuild, convW, stagedNames, top3,
+           equity: W(), cash: state.cash };
+}
+/* ================= INSIGHTS ================= */
+function insights(P, C){
+  const out = [];
+  // --- composition reads first ---
+  const postAddCash = C.cash - C.pendingAdds + C.exits + C.trims;
+  out.push([`Composition`, `Book is <b>${fmt.w(C.equity)} deployed</b> against a full-build target of ${fmt.w(C.fullBuild)}. ` +
+    `Staged adds pending: <b>${fmt.w(C.pendingAdds)}</b> (${C.stagedNames.map(h=>h.tk).join(", ")}) vs cash of ${fmt.w(C.cash)} — ` +
+    (C.pendingAdds<=C.cash ? `fully funded from cash. ` : `<b>underfunded by ${fmt.w(C.pendingAdds-C.cash)}</b> — identify the trim source now, not at the trigger. `) +
+    (C.exits>0 ? `The ${fmt.w(C.exits)} exit sleeve (${state.holdings.filter(h=>h.fullWt===0).map(h=>h.tk).join(", ")}) returns further powder; ` : "") +
+    `steady-state cash at full build ≈ <b>${fmt.w(Math.max(postAddCash,0))}</b>.`]);
+  const top3w = C.top3.reduce((a,h)=>a+h.wt,0);
+  if (top3w/C.equity > 0.5)
+    out.push([`Concentration`, `Top-3 (${C.top3.map(h=>h.tk).join(", ")}) = <b>${fmt.w(top3w)}</b> of NAV, ${(top3w/C.equity*100).toFixed(0)}% of equity. Acceptable for a conviction book, but note two of three staged adds deepen existing sector bets rather than diversify.`]);
+  if (C.convW.Low > 0.12)
+    out.push([`Conviction check`, `<b>${fmt.w(C.convW.Low)}</b> of NAV sits in Low-conviction names (${state.holdings.filter(h=>h.conv==="Low").map(h=>h.tk).join(", ")}). Both are momentum rides with explicit exit rules — enforce the stops; this sleeve is the designated funding source if staged triggers fire before exits complete.`]);
+  const eventGated = state.holdings.filter(h=>h.fullWt>h.wt && !h.addLvl);
+  if (eventGated.length)
+    out.push([`Sequencing`, `${eventGated.map(h=>"<b>"+h.tk+"</b>").join(", ")} adds are event-gated, not price-gated — they cannot be pre-funded by limit orders. Calendar the catalysts so the powder isn't redeployed elsewhere first.`]);
+  if (!P.rows.length) return out;
+  // --- performance/factor reads ---
+  const top = P.rows[0];
+  const share = P.total ? top.total/P.total : 0;
+  if (share > 0.3 && P.total > 0)
+    out.push([`P&L concentration`, `<b>${top.tk}</b> is ${(share*100).toFixed(0)}% of total P&L — book-level outcome currently rides one name.`]);
+  const hiM = P.rows.filter(r=>r.momo!=null && r.momo>=0.5);
+  const hiPL = hiM.reduce((a,r)=>a+r.total,0);
+  if (P.total>0 && hiPL/P.total > 0.5)
+    out.push([`Factor read`, `${(hiPL/P.total*100).toFixed(0)}% of P&L comes from high-momentum names (${hiM.map(r=>r.tk).join(", ")}). The book is being paid for momentum, not value — a market-neutral India momentum sleeve is the cleanest side expression of the same signal.`]);
+  const wSec = {};
+  state.holdings.forEach(h=>wSec[h.sector]=(wSec[h.sector]||0)+h.wt);
+  const indAct = (wSec["Industrials"]||0)/W() - (BENCH_SECT["Industrials"]||0);
+  if (indAct > 0.05)
+    out.push([`Crowding`, `Industrials is ${fmt.pct(indAct)} active — BEL + Kaynes make it a <b>defense/electronics-capex bet</b>, and the Kaynes staged add deepens it further. Related side bets elsewhere in the complex add to an exposure the book already carries; size them against this, not in isolation.`]);
+  state.holdings.forEach(h=>{
+    const u = upside(h), s = sig(h.tk);
+    if (u==null || !s) return;
+    if (u >= 0.15 && s.momo <= -0.5)
+      out.push([`Divergence`, `<b>${h.tk}</b>: ${fmt.pct(u)} modelled upside but ${fmt.z(s.momo)} momentum — thesis and tape disagree. The staged-entry discipline exists for exactly this: let the trigger do the timing.`]);
+    if (u !== null && u <= 0.05 && u > -1 && s.momo >= 0.5 && h.fullWt>0)
+      out.push([`Divergence`, `<b>${h.tk}</b>: tape (${fmt.z(s.momo)} momentum) has run ahead of the ${fmt.pct(u)} remaining upside — either the target is stale or the trim rule applies.`]);
+  });
+  const vz = wavg(h=>sig(h.tk)?.val);
+  if (vz < -0.5)
+    out.push([`Posture`, `Weighted value z is ${fmt.z(vz)} — the book pays up for growth/quality, and both staged adds (Sun, Titan) would buy <i>corrections</i>, partially self-correcting this. If the momentum regime turns, the ${fmt.w(C.cash)} cash is the real hedge; deploy the staged tranches patiently.`]);
+  return out;
+}
+/* ================= RENDER: OVERVIEW ================= */
+function renderOverview(){
+  const P = perfCalc();
+  const C = composition();
+  const el = document.getElementById("ov-body");
+  const ret = P.bought ? P.total/P.bought : 0;
+  const ins = insights(P, C);
+  const convCol = {High:"var(--up)", Medium:"var(--blue)", Low:"var(--amber)"};
+  const segBar = (items, cashW) => `<div class="compbar">` +
+    items.map(([tk,w,col])=> w>0.001 ? `<div style="width:${w*100}%;background:${col}">` +
+      (w>0.05?`<span class="seg-lbl">${tk}</span>`:"") + `</div>` : "").join("") +
+    (cashW>0.001?`<div style="width:${cashW*100}%;background:#39435C"><span class="seg-lbl" style="color:var(--dim)">CASH ${fmt.w(cashW)}</span></div>`:"") +
+    `</div>`;
+  const cur = state.holdings.map(h=>[h.tk, h.wt, convCol[h.conv]||"var(--blue)"]);
+  const full = state.holdings.filter(h=>h.fullWt>0).map(h=>[h.tk, h.fullWt, convCol[h.conv]||"var(--blue)"]);
+  const fullCash = Math.max(1 - C.fullBuild, 0);
+  const stagedRows = state.holdings
+    .filter(h=>h.fullWt>h.wt || h.fullWt===0 || (h.fullWt>0&&h.fullWt<h.wt))
+    .map(h=>{
+      const s = sig(h.tk);
+      const kind = h.fullWt===0 ? "Exit" : h.fullWt>h.wt ? "Add" : "Trim";
+      const delta = h.fullWt===0 ? -h.wt : h.fullWt-h.wt;
+      const trig = h.addLvl ? "₹"+h.addLvl.toLocaleString("en-IN") : (kind==="Add" ? "Event" : "Rule");
+      const dist = h.addLvl && s ? fmt.pct(h.addLvl/s.cmp-1) : "—";
+      return `<tr><td>${h.tk}</td><td>${kind}</td>
+        <td>${fmt.w(h.wt)} → ${fmt.w(h.fullWt)}</td>
+        <td class="${delta>=0?"pos":"neg"}">${fmt.pct(delta)}</td>
+        <td>${trig}</td><td>${dist}</td>
+        <td class="wraptext">${h.strategy}</td></tr>`;
+    }).join("");
+  el.innerHTML = `
+  <div class="stats">
+    ${[["Total P&L",fmt.inr(P.total),"after costs · "+fmt.pct(ret)+" on gross",P.total>=0?"pos":"neg"],
+       ["Realized",fmt.inr(P.realized),"avg-cost basis",P.realized>=0?"pos":"neg"],
+       ["Unrealized",fmt.inr(P.unreal),"marked to feed CMPs",P.unreal>=0?"pos":"neg"],
+       ["Equity",fmt.w(C.equity),"of NAV · "+state.holdings.length+" names",""],
+       ["Cash",fmt.w(C.cash),"vs "+fmt.w(C.pendingAdds)+" staged adds",""],
+       ["Wtd upside",fmt.pct(wavg(upside)),"to analyst targets","pos"]]
+      .map(([k,v,s,c])=>`<div class="stat"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`).join("")}
+  </div>
+  <div class="sec">Composition <small>current vs full build · colour = conviction</small></div>
+  <div class="panel compwrap">
+    <div class="comprow"><div class="lab">Current</div>${segBar(cur, C.cash)}</div>
+    <div class="comprow"><div class="lab">Full build</div>${segBar(full, fullCash)}</div>
+    <div class="complegend">
+      <span><span class="dot" style="background:var(--up)"></span>High conviction ${fmt.w(C.convW.High)}</span>
+      <span><span class="dot" style="background:var(--blue)"></span>Medium ${fmt.w(C.convW.Medium)}</span>
+      <span><span class="dot" style="background:var(--amber)"></span>Low ${fmt.w(C.convW.Low)}</span>
+      <span><span class="dot" style="background:#39435C"></span>Cash</span>
+    </div>
+  </div>
+  <div class="sec">Staged actions <small>the plan the trades file gets reconciled against</small></div>
+  <div class="twrap" style="margin-bottom:18px"><table class="ptable">
+    <thead><tr><th>Name</th><th>Action</th><th>Weight path</th><th>Δ</th><th>Trigger</th><th>Dist.</th><th>Strategy</th></tr></thead>
+    <tbody>${stagedRows}</tbody>
+  </table></div>
+  <div class="sec">P&L attribution <small>total P&L after costs, grouped four ways</small></div>
+  <div class="attr-grid">
+    <div class="panel"><h3>By sector</h3>${barList(groupPL(P.rows, r=>r.sector))}</div>
+    <div class="panel"><h3>By momentum cohort</h3>${barList(groupPL(P.rows, r=>r.momo==null?"No signal":r.momo>=0.5?"High momo":r.momo<=-0.5?"Low momo":"Mid momo"))}</div>
+    <div class="panel"><h3>By size</h3>${barList(groupPL(P.rows, r=>r.bucket))}</div>
+    <div class="panel"><h3>By analyst</h3>${barList(groupPL(P.rows, r=>r.analyst))}</div>
+  </div>
+  <div class="sec">Insights <small>rule-based reads for the IC — judgement stays human</small></div>
+  ${ins.map(([tag,txt])=>`<div class="insight"><span class="tag">${tag}</span>${txt}</div>`).join("")}
+  <div class="foot">Realized P&L on full-period average cost, matching the Excel. Return is money-weighted;
+  production computes TWR/XIRR from dated cash flows. Signals: simulated feed in mock (yfinance + FactSet in production).</div>`;
+}
+/* ================= RENDER: EXPOSURES ================= */
+function frailHTML(name, note, getZ){
+  const wz = wavg(h=>{const s=sig(h.tk); return s?getZ(s):null;});
+  const x = z => (Math.min(2.4, Math.max(-2.4, z))/2.5*50 + 50).toFixed(1)+"%";
+  const dots = state.holdings.map(h=>{
+    const s = sig(h.tk); if(!s) return "";
+    return `<div class="hdot" style="left:${x(getZ(s))}" title="${h.tk}"></div>`;
+  }).join("");
+  const grid = [-2,-1,1,2].map(g=>`<div class="gridl" style="left:${x(g)}"></div>`).join("");
+  return `<div class="frail">
+    <div class="top"><span class="nm">${name}</span><span class="zval">${fmt.z(wz)}</span></div>
+    <div class="axis">${grid}<div class="zero"></div>${dots}<div class="wmark" style="left:${x(wz)}"></div></div>
+    <div class="lbls"><span>−2σ</span><span>index</span><span>+2σ</span></div>
+    <div class="note">${note}</div>
+  </div>`;
+}
+function renderExposures(){
+  const el = document.getElementById("exp-body");
+  const wSec = {};
+  state.holdings.forEach(h=>wSec[h.sector]=(wSec[h.sector]||0)+h.wt);
+  const P = perfCalc();
+  const plSec = Object.fromEntries(groupPL(P.rows, r=>r.sector));
+  const held = Object.keys(wSec);
+  const notHeld = Object.entries(BENCH_SECT).filter(([s])=>!held.includes(s));
+  const notHeldW = notHeld.reduce((a,[,w])=>a+w,0);
+  const sizeW = {Large:0,Mid:0,Small:0};
+  state.holdings.forEach(h=>{const b=bucketOf(h.tk); if(sizeW[b]!=null) sizeW[b]+=h.wt;});
+  const sc = {Large:"#4E7BC4", Mid:"#F2A93B", Small:"#43C08D"};
+  const secRows = held.sort((a,b)=>wSec[b]-wSec[a]).map(s=>{
+    const pw = wSec[s]/W(), bw = BENCH_SECT[s]||0, act = pw-bw;
+    const bwid = Math.min(Math.abs(act)*300, 60);
+    return `<tr><td>${s}</td><td>${(pw*100).toFixed(1)}%</td><td>${(bw*100).toFixed(1)}%</td>
+      <td class="${act>=0?"pos":"neg"}">${fmt.pct(act)}
+        <span class="actbar" style="width:${bwid}px;background:${act>=0?"var(--up)":"var(--down)"}"></span></td>
+      <td class="${(plSec[s]||0)>=0?"pos":"neg"}">${fmt.lakh(plSec[s]||0)}</td></tr>`;
+  }).join("") + `<tr><td style="color:var(--faint)">Not held (${notHeld.length} sectors)</td>
+      <td>0.0%</td><td>${(notHeldW*100).toFixed(1)}%</td>
+      <td class="neg">${fmt.pct(-notHeldW)}</td><td>—</td></tr>`;
+  el.innerHTML = `
+  <div class="sec">Factor profile <small>saffron diamond = weighted book · blue dots = holdings · axis = z vs Nifty 500</small></div>
+  <div class="panel" style="margin-bottom:18px">
+    ${frailHTML("Value", "Composite of fwd P/E, P/B, EV/EBITDA. Positive = cheaper than index.", s=>s.val)}
+    ${frailHTML("Momentum", "12M−1M and 6M price return blend. Positive = stronger tape.", s=>s.momo)}
+    ${frailHTML("Quality", "ROE, leverage, margin stability, accruals. Positive = higher quality.", s=>s.qual)}
+  </div>
+  <div class="sec">Size <small>vs Nifty 500 weights</small></div>
+  <div class="panel" style="margin-bottom:18px">
+    <div style="display:flex;height:14px;border-radius:4px;overflow:hidden;margin-bottom:8px">
+      ${Object.entries(sizeW).map(([k,v])=>`<div style="width:${v/W()*100}%;background:${sc[k]}"></div>`).join("")}
+    </div>
+    <div style="display:flex;gap:14px;font-family:'IBM Plex Mono';font-size:11px;color:var(--dim);flex-wrap:wrap">
+      ${Object.entries(sizeW).map(([k,v])=>`<span><span class="dot" style="background:${sc[k]}"></span>${k} ${(v/W()*100).toFixed(0)}% (idx ${(BENCH_SIZE[k]*100).toFixed(0)})</span>`).join("")}
+    </div>
+  </div>
+  <div class="sec">Sector exposure <small>active weight and P&L contribution</small></div>
+  <div class="twrap"><table class="ptable">
+    <thead><tr><th>Sector</th><th>Portfolio</th><th>Nifty 500</th><th>Active</th><th>P&L</th></tr></thead>
+    <tbody>${secRows}</tbody>
+  </table></div>
+  <div class="foot">Benchmark sector and size weights are static placeholders in the mock — pulled from the index factsheet feed in production.</div>`;
+}
+/* ================= RENDER: POSITIONS ================= */
+function renderPositions(){
+  document.getElementById("asof").innerHTML =
+    `${state.srcH} · ${state.srcT}<br>Signal feed: <b style="color:${feedMeta.live?"var(--up)":"var(--amber)"}">${feedMeta.live?"LIVE · ":""}${feedMeta.asof}</b>` +
+    ` <button onclick="loadSignals()" style="font-family:'IBM Plex Mono';font-size:10px;color:var(--saffron);background:none;border:1px solid rgba(242,169,59,.4);border-radius:3px;padding:1px 6px;cursor:pointer;margin-left:6px">↻ refresh</button>`;
+  document.getElementById("rows").innerHTML = [...state.holdings].sort((a,b)=>b.wt-a.wt).map(h=>{
+    const s = sig(h.tk), u = upside(h), [txt,cls,col] = statusOf(h);
+    const cmp = s?.cmp, lo = s?.lo ?? (cmp?Math.min(cmp,h.tp)*0.88:null);
+    let railHtml = `<div class="cell" style="color:var(--faint)">no price feed</div>`;
+    if (cmp && lo){
+      const hiAnchor = Math.max(h.tp, cmp);
+      const loAnchor = h.addLvl ? Math.min(lo, h.addLvl*0.98) : lo;
+      const span = hiAnchor*1.03 - loAnchor;
+      const x = v => (Math.min(99, Math.max(0,(v-loAnchor)/span*100))).toFixed(1)+"%";
+      railHtml = `<div class="rail">
+        <span class="lo" style="left:0">${Math.round(loAnchor).toLocaleString("en-IN")}</span>
+        <span class="tg" style="left:${x(h.tp)};transform:translateX(-100%)">TP ${Math.round(h.tp).toLocaleString("en-IN")}</span>
+        <div class="track"></div>
+        ${h.addLvl?`<div class="add" style="left:${x(h.addLvl)}" title="Add ₹${h.addLvl}"></div>`:""}
+        <div class="tp" style="left:${x(h.tp)}"></div>
+        <div class="cmp" style="left:${x(cmp)};border-color:${col}"></div></div>`;
+    }
+    const zc = v => v==null?"—":`<b style="color:${v>=0.5?"var(--up)":v<=-0.5?"var(--down)":"var(--dim)"}">${fmt.z(v)}</b>`;
+    return `<div class="row" onclick="this.classList.toggle('open')">
+      <div class="row-main">
+        <div class="nm2"><span class="tk">${h.tk}</span><span class="bucket">${bucketOf(h.tk)}</span><span class="built">${builtOf(h)}</span>
+          <div class="co">${h.co}</div>
+          <div class="meta">${h.sector||"—"} · ${h.analyst||"—"} · Conviction ${h.conv||"—"}</div></div>
+        <div class="cell"><div class="lbl">Weight</div>${(h.wt*100).toFixed(1)}%<div class="sub">full ${h.fullWt!=null?fmt.w(h.fullWt):"—"}</div></div>
+        ${railHtml}
+        <div class="cell ${u!=null&&u>=0?"pos":"neg"}"><div class="lbl">Upside</div>${u!=null?fmt.pct(u):"—"}<div class="sub">${cmp?"CMP "+fmt.inr(cmp):""}</div></div>
+        <div class="cell"><div class="lbl">Signals</div><div class="sigchips">
+          <span>V ${zc(s?.val)}</span><span>M ${zc(s?.momo)}</span><span>Q ${zc(s?.qual)}</span></div></div>
+        <div class="cell"><div class="lbl">Status</div><span class="badge ${cls}">${txt}</span></div>
+      </div>
+      <div class="detail">
+        <span class="dlab">Thesis — ${h.analyst||""}</span>${h.thesis||"No thesis entered."}
+        <div class="strat"><span class="dlab">Strategy</span>${h.strategy||"No strategy entered."}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+function renderAll(){ renderOverview(); renderExposures(); renderPositions(); }
+/* ================= IMPORT ================= */
+const num = v => { if (v==null||v==="") return null;
+  if (typeof v==="number") return v;
+  const n = parseFloat(String(v).replace(/[,₹%\s]/g,"")); return isNaN(n)?null:n; };
+const frac = v => { const n=num(v); return n==null?null:(Math.abs(n)>1.5?n/100:n); };
+const asDate = v => v instanceof Date ? v : (v ? new Date(v) : null);
+const sideOf = v => { const s=String(v||"").trim().toLowerCase(); return s==="buy"?"Buy":s==="sell"?"Sell":null; };
+function holdingsFromSheet(ws){
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, range:"A4:S28", defval:null});
+  const out = [];
+  for (const r of rows){
+    const [_, co, tk, sector, analyst, cmp, tp, __, mcap, ___, wt, ret12, pe, pb, conv, ____, _____, thesis] = r;
+    if ((!co && !tk) || num(tp)==null) continue;
+    out.push({ tk:String(tk||co).trim().toUpperCase(), co:String(co||tk).trim(), sector, analyst,
+      tp:num(tp), wt:frac(wt)??0, fullWt:frac(wt)??0, conv, thesis:thesis?String(thesis):null, strategy:null, addLvl:null });
+  }
+  return out;
+}
+function tradesFromSheet(ws){
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, range:"A4:J103", defval:null});
+  const out = [];
+  for (const r of rows){
+    const [date, tk, side, qty, price, _, costs] = r;
+    const s = sideOf(side);
+    if (!tk || !s || !num(qty) || !num(price)) continue;
+    out.push({ date:asDate(date), tk:String(tk).trim().toUpperCase(), side:s,
+               qty:num(qty), price:num(price), costs:num(costs)||0 });
+  }
+  return out;
+}
+function holdingsFromCSV(rows){
+  const hdr = rows[0].map(h=>String(h||"").toLowerCase().replace(/[^a-z0-9]/g,""));
+  const col = (...n)=>{for(const x of n){const i=hdr.indexOf(x); if(i>-1)return i;} return -1;};
+  const c = { co:col("company","name"), tk:col("ticker","nseticker","symbol"), sector:col("sector"),
+    analyst:col("analyst"), tp:col("target","targetprice","tp"), wt:col("weight","wt"),
+    fullWt:col("fullweight","fullwt","targetweight"), addLvl:col("addlevel","addlvl","addprice"),
+    conv:col("conviction","conv"), thesis:col("thesis","comments","notes"), strategy:col("strategy","plan") };
+  if (c.tk<0 && c.co<0) throw "Holdings CSV needs a Ticker or Company column.";
+  if (c.tp<0) throw "Holdings CSV needs a Target column.";
+  const out = [];
+  for (const r of rows.slice(1)){
+    const g = i => i>-1?r[i]:null;
+    if ((!g(c.co)&&!g(c.tk)) || num(g(c.tp))==null) continue;
+    const wt = frac(g(c.wt))??0;
+    out.push({ tk:String(g(c.tk)||g(c.co)).trim().toUpperCase(), co:String(g(c.co)||g(c.tk)).trim(),
+      sector:g(c.sector), analyst:g(c.analyst), tp:num(g(c.tp)), wt,
+      fullWt: frac(g(c.fullWt)) ?? wt, addLvl:num(g(c.addLvl)),
+      conv:g(c.conv), thesis:g(c.thesis)?String(g(c.thesis)):null,
+      strategy:g(c.strategy)?String(g(c.strategy)):null });
+  }
+  return out;
+}
+function tradesFromCSV(rows){
+  const hdr = rows[0].map(h=>String(h||"").toLowerCase().replace(/[^a-z0-9]/g,""));
+  const col = (...n)=>{for(const x of n){const i=hdr.indexOf(x); if(i>-1)return i;} return -1;};
+  const c = { date:col("date"), tk:col("ticker","symbol"), side:col("side"),
+              qty:col("qty","quantity","shares"), price:col("price"), costs:col("costs","fees","charges") };
+  if (c.tk<0 || c.side<0 || c.qty<0 || c.price<0) throw "Trades CSV needs Ticker, Side, Qty and Price columns.";
+  const out = [];
+  for (const r of rows.slice(1)){
+    const g = i => i>-1?r[i]:null;
+    const s = sideOf(g(c.side));
+    if (!g(c.tk) || !s || !num(g(c.qty)) || !num(g(c.price))) continue;
+    out.push({ date:asDate(g(c.date)), tk:String(g(c.tk)).trim().toUpperCase(), side:s,
+               qty:num(g(c.qty)), price:num(g(c.price)), costs:num(g(c.costs))||0 });
+  }
+  return out;
+}
+function pick(slot){ activeSlot = slot; document.getElementById("file-"+slot).click(); }
+function handleFile(file, slot){
+  const msg = document.getElementById("msg");
+  msg.className = "msg";
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const wbk = XLSX.read(e.target.result, {type:"binary", cellDates:true});
+      let holdings=null, trades=null;
+      if (/\.csv$/i.test(file.name)){
+        const rows = XLSX.utils.sheet_to_json(wbk.Sheets[wbk.SheetNames[0]], {header:1, defval:null});
+        if (!rows.length) throw "Empty file.";
+        if (slot==="h") holdings = holdingsFromCSV(rows); else trades = tradesFromCSV(rows);
+      } else {
+        if (slot==="h"){
+          if (!wbk.Sheets["Portfolio"]) throw "No 'Portfolio' sheet in this workbook.";
+          holdings = holdingsFromSheet(wbk.Sheets["Portfolio"]);
+          if (wbk.Sheets["Trades"]) trades = tradesFromSheet(wbk.Sheets["Trades"]);
+        } else {
+          if (!wbk.Sheets["Trades"]) throw "No 'Trades' sheet in this workbook.";
+          trades = tradesFromSheet(wbk.Sheets["Trades"]);
+        }
+      }
+      if (slot==="h" && (!holdings || !holdings.length)) throw "No valid holdings rows found.";
+      if (slot==="t" && (!trades || !trades.length)) throw "No valid trade rows found.";
+      staged = { ...state,
+        ...(holdings ? {holdings, srcH:"Holdings: "+file.name} : {}),
+        ...(trades ? {trades, srcT:"Trades: "+file.name} : {}) };
+      const missing = (holdings||[]).filter(h=>!sig(h.tk)).map(h=>h.tk);
+      msg.className = "msg ok";
+      msg.textContent = (holdings?`Parsed ${holdings.length} holdings`:"") +
+        (holdings&&trades?" and ":"") + (trades?`${trades.length} trades`:"") + ` from ${file.name}.` +
+        (missing.length ? ` No signal feed for: ${missing.join(", ")} — shown without prices until the feed covers them.` : "") +
+        " Review, then load.";
+      if (holdings){
+        document.getElementById("phead").innerHTML =
+          "<th>Ticker</th><th>Company</th><th>Weight</th><th>Full wt</th><th>Target</th><th>Sector</th><th>Analyst</th>";
+        document.getElementById("pbody").innerHTML = holdings.map(h=>
+          `<tr><td>${h.tk}</td><td style="text-align:left">${h.co}</td><td>${(h.wt*100).toFixed(1)}%</td><td>${fmt.w(h.fullWt)}</td><td>${fmt.inr(h.tp)}</td><td>${h.sector||"—"}</td><td>${h.analyst||"—"}</td></tr>`).join("");
+      } else {
+        document.getElementById("phead").innerHTML =
+          "<th>Date</th><th>Ticker</th><th>Side</th><th>Qty</th><th>Price</th><th>Costs</th>";
+        document.getElementById("pbody").innerHTML = trades.map(t=>
+          `<tr><td>${fmt.d(t.date)}</td><td>${t.tk}</td><td>${t.side}</td><td>${t.qty.toLocaleString("en-IN")}</td><td>${fmt.inr(t.price)}</td><td>${fmt.inr(t.costs)}</td></tr>`).join("");
+      }
+      document.getElementById("pcount").textContent = file.name;
+      document.getElementById("preview").style.display = "block";
+    } catch(err){
+      msg.className = "msg err";
+      msg.textContent = "Import failed: " + err;
+      document.getElementById("preview").style.display = "none";
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+function commit(){ if (!staged) return; state = staged; renderAll(); showView("ov"); }
+function resetImport(){
+  staged = null;
+  document.getElementById("preview").style.display = "none";
+  document.getElementById("msg").className = "msg";
+  document.getElementById("file-h").value = ""; document.getElementById("file-t").value = "";
+}
+for (const slot of ["h","t"]){
+  const dz = document.getElementById("drop-"+slot);
+  document.getElementById("file-"+slot).addEventListener("change", e=>{ if(e.target.files[0]) handleFile(e.target.files[0], slot); });
+  ["dragover","dragenter"].forEach(ev=>dz.addEventListener(ev, e=>{e.preventDefault();dz.classList.add("over");}));
+  ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev, e=>{e.preventDefault();dz.classList.remove("over");}));
+  dz.addEventListener("drop", e=>{ if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0], slot); });
+}
+renderAll();          // paint immediately from fallback
+loadSignals();        // then swap in live feed when it arrives
+setInterval(loadSignals, 15*60*1000); // refresh every 15 min while page open
+</script>
+</body>
+</html>

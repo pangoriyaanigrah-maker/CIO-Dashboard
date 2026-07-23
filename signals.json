@@ -1,0 +1,14 @@
+{
+ "asof": "17 Jul 2026, 18:05 IST (SAMPLE — replace with nightly run)",
+ "note": "momo z is cross-sectional vs portfolio names; val/qual are analyst overrides pending fundamentals feed",
+ "errors": [],
+ "signals": {
+  "HDFCBANK":   {"cmp": 1000,  "mcap": 1530000, "lo": 820,   "val": 0.9,  "momo": -0.2, "qual": 0.7},
+  "BEL":        {"cmp": 340,   "mcap": 248000,  "lo": 225,   "val": -1.1, "momo": 1.4,  "qual": 0.8},
+  "SUNPHARMA":  {"cmp": 1750,  "mcap": 420000,  "lo": 1420,  "val": -0.2, "momo": 0.1,  "qual": 0.5},
+  "TITAN":      {"cmp": 3600,  "mcap": 320000,  "lo": 2960,  "val": -1.5, "momo": -0.4, "qual": 0.9},
+  "DIXON":      {"cmp": 16500, "mcap": 99000,   "lo": 9800,  "val": -2.0, "momo": 1.8,  "qual": 0.3},
+  "PERSISTENT": {"cmp": 5600,  "mcap": 87000,   "lo": 4300,  "val": -0.9, "momo": -0.6, "qual": 0.6},
+  "KAYNES":     {"cmp": 6200,  "mcap": 40000,   "lo": 3900,  "val": -1.7, "momo": 1.2,  "qual": -0.3}
+ }
+}

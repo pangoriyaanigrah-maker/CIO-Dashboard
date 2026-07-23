@@ -1,0 +1,36 @@
+# .github/workflows/update-signals.yml
+# Nightly NSE signal refresh for DL India Core dashboard.
+# Runs after Indian market close (15:30 IST = 10:00 UTC), Mon-Fri.
+name: update-signals
+
+on:
+  schedule:
+    - cron: "30 12 * * 1-5"   # 18:00 IST daily Mon-Fri (buffer after close)
+  workflow_dispatch: {}        # manual run button
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install yfinance
+
+      - name: Build signals.json
+        run: python build_signals.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name "signals-bot"
+          git config user.email "actions@github.com"
+          git add signals.json
+          git diff --cached --quiet || git commit -m "chore: nightly signals refresh"
+          git push
