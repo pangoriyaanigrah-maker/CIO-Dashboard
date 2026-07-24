@@ -1,5 +1,5 @@
 {
- "asof": "24 Jul 2026, 13:46 IST",
+ "asof": "24 Jul 2026, 19:51 IST",
  "note": "z-scores cross-sectional vs 65-name NSE universe. val = earnings+book yield (positive=cheap); qual = ROE+op margin\u2212leverage; momo = 12M\u22121M & 6M blend. bench_sect/bench_size = mcap-weighted live proxy over the same universe, NOT official Nifty 500 index weights. Source: Yahoo Finance nightly.",
  "universe_size": 65,
  "errors": [
@@ -8,77 +8,77 @@
  ],
  "signals": {
   "HDFCBANK": {
-   "cmp": 746.0,
-   "mcap": 1149215,
+   "cmp": 742.8,
+   "mcap": 1144285,
    "lo": 719.6,
-   "momo": -1.14,
-   "val": 0.97,
+   "momo": -1.16,
+   "val": 0.98,
    "qual": 0.2
   },
   "BEL": {
-   "cmp": 404.5,
-   "mcap": 295717,
+   "cmp": 405.0,
+   "mcap": 296046,
    "lo": 362.3,
-   "momo": -0.27,
-   "val": -0.71,
+   "momo": -0.26,
+   "val": -0.72,
    "qual": 0.69
   },
   "SUNPHARMA": {
-   "cmp": 1940.0,
-   "mcap": 465471,
+   "cmp": 1941.1,
+   "mcap": 465735,
    "lo": 1549.2,
-   "momo": 0.39,
-   "val": -0.41,
+   "momo": 0.4,
+   "val": -0.42,
    "qual": 0.02
   },
   "TITAN": {
-   "cmp": 4680.5,
-   "mcap": 415182,
+   "cmp": 4677.0,
+   "mcap": 414871,
    "lo": 3305.2,
    "momo": 0.6,
-   "val": -0.95,
+   "val": -0.96,
    "qual": -0.49
   },
   "DIXON": {
-   "cmp": 13771.0,
-   "mcap": 83730,
+   "cmp": 13846.0,
+   "mcap": 84186,
    "lo": 9673.0,
-   "momo": -0.21,
-   "val": -0.76,
+   "momo": -0.19,
+   "val": -0.77,
    "qual": 0.32
   },
   "PERSISTENT": {
-   "cmp": 5108.6,
-   "mcap": 79812,
+   "cmp": 5200.5,
+   "mcap": 81248,
    "lo": 4298.5,
-   "momo": -0.79,
-   "val": -0.62,
+   "momo": -0.8,
+   "val": -0.64,
    "qual": 0.34
   },
   "KAYNES": {
-   "cmp": 3175.0,
-   "mcap": 21284,
+   "cmp": 3176.2,
+   "mcap": 21292,
    "lo": 3001.0,
-   "momo": -1.43,
-   "val": -0.45,
-   "qual": -0.43
+   "momo": -1.42,
+   "val": -0.47,
+   "qual": -0.42
   }
  },
  "bench_sect": {
-  "Financials": 0.2519,
-  "Industrials": 0.1505,
-  "Energy": 0.1199,
-  "IT Services": 0.1017,
+  "Financials": 0.2517,
+  "Industrials": 0.1502,
+  "Energy": 0.1197,
+  "IT Services": 0.1024,
   "Autos": 0.0699,
-  "Consumer Staples": 0.0676,
+  "Consumer Staples": 0.0675,
   "Materials": 0.0637,
-  "Telecom": 0.0579,
-  "Healthcare": 0.0489,
-  "Consumer Discretionary": 0.0383,
-  "Utilities": 0.0298
+  "Telecom": 0.0582,
+  "Healthcare": 0.0488,
+  "Consumer Discretionary": 0.0382,
+  "Utilities": 0.0297
  },
  "bench_size": {
-  "Large": 0.9863,
+  "Large": 0.9862,
   "Mid": 0.0127,
   "Small": 0.001
  }
